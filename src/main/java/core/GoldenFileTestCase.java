@@ -23,38 +23,28 @@ import java.util.Set;
 public abstract class GoldenFileTestCase implements GoldenFileTest {
 
     @Override
-    public void run(GoldenTestResult result, boolean update, String goldenFilesLocation) {
+    public GoldenTestResult run(GoldenTestResult result, boolean update, String goldenFilesLocation) {
         Reflections reflections = new Reflections(this.getClass());
         Set<Method> methodsGoldenVsFile = getMethodsGoldenVsFile(reflections);
         Set<Method> methodsGoldenVsString = getMethodsGoldenVsString(reflections);
         beforeAll();
-        //Canviar el try/catch d'aquí
-        try {
-            if (update) {
-                updateGoldenFiles(methodsGoldenVsFile, methodsGoldenVsString, goldenFilesLocation);
-            } else {
-                runTest(methodsGoldenVsFile, methodsGoldenVsString, goldenFilesLocation);
-            }
-        }catch (GoldenFileDoesntMatch e){
-            result.addFailure();
-            System.out.println(e);
-        }catch (Exception e){
-            result.addError();
-            System.out.println(e);
-        }a
+        if (update) {
+            updateGoldenFiles(methodsGoldenVsFile, methodsGoldenVsString, goldenFilesLocation);
+        } else {
+            result = runTest(methodsGoldenVsFile, methodsGoldenVsString, goldenFilesLocation, result);
+        }
         afterAll();
+        return result;
     }
 
     private void updateGoldenFiles(Set<Method> methodsGoldenVsFile,
                                    Set<Method> methodsGoldenVsString,
-                                   String goldenFilesLocation)
-            throws OutputFileNotSpecified, InvocationTargetException, IllegalAccessException, IOException {
+                                   String goldenFilesLocation)  {
         updateGoldenFilesfromFile(methodsGoldenVsFile, goldenFilesLocation);
         updateGoldenFilesFromString(methodsGoldenVsString, goldenFilesLocation);
     }
 
-    private void updateGoldenFilesfromFile(Set<Method> methodsGoldenVsFile, String goldenFilesLocation)
-            throws OutputFileNotSpecified, InvocationTargetException, IllegalAccessException, IOException {
+    private void updateGoldenFilesfromFile(Set<Method> methodsGoldenVsFile, String goldenFilesLocation) {
         for (Method testMethod : methodsGoldenVsFile){
             try {
                 beforeEach();
@@ -62,14 +52,13 @@ public abstract class GoldenFileTestCase implements GoldenFileTest {
                 afterEach();
                 Files.copy(Paths.get(getOutputFilePath(testMethod)), Paths.get(goldenFilesLocation+"/"+testMethod.getName()));
             }catch (Exception e){
-                BufferedWriter writer = new BufferedWriter(new FileWriter(goldenFilesLocation+"/"+testMethod.getName()));
-                writer.write(e.toString());
-                writer.close();
+                System.out.println(e);
+                System.exit(-1);
             }
         }
     }
 
-    private void updateGoldenFilesFromString(Set<Method> methodsGoldenVsString, String goldenFilesLocation) throws InvocationTargetException, IllegalAccessException, IOException {
+    private void updateGoldenFilesFromString(Set<Method> methodsGoldenVsString, String goldenFilesLocation) {
         for (Method testMethod : methodsGoldenVsString){
             try {
                 beforeEach();
@@ -79,9 +68,8 @@ public abstract class GoldenFileTestCase implements GoldenFileTest {
                 writer.write(output);
                 writer.close();
             }catch (Exception e){
-                BufferedWriter writer = new BufferedWriter(new FileWriter(goldenFilesLocation+"/"+testMethod.getName()));
-                writer.write(e.toString());
-                writer.close();
+                System.out.println(e);
+
             }
         }
     }
@@ -95,12 +83,12 @@ public abstract class GoldenFileTestCase implements GoldenFileTest {
         return "";
     }
 
-    private void runTest(Set<Method> methodsGoldenVsFile, Set<Method> methodsGoldenVsString, String goldenFileLocations) throws GoldenFileDoesntMatch, IOException, OutputFileNotSpecified, InvocationTargetException, IllegalAccessException {
-        checkGoldenVsFileTests(methodsGoldenVsFile, goldenFileLocations);
-        checkGoldenVsStringTests(methodsGoldenVsFile, goldenFileLocations);
+    private GoldenTestResult runTest(Set<Method> methodsGoldenVsFile, Set<Method> methodsGoldenVsString, String goldenFileLocations, GoldenTestResult result)  {
+        result = checkGoldenVsFileTests(methodsGoldenVsFile, goldenFileLocations, result);
+        return checkGoldenVsStringTests(methodsGoldenVsFile, goldenFileLocations,result);
     }
 
-    private void checkGoldenVsFileTests(Set<Method> methodsGoldenVsFile, String goldenFileLocations) throws InvocationTargetException, IllegalAccessException, OutputFileNotSpecified, IOException, GoldenFileDoesntMatch {
+    private GoldenTestResult checkGoldenVsFileTests(Set<Method> methodsGoldenVsFile, String goldenFileLocations, GoldenTestResult result) {
         for(Method testMethod : methodsGoldenVsFile){
             try {
                 beforeEach();
@@ -111,23 +99,43 @@ public abstract class GoldenFileTestCase implements GoldenFileTest {
                 if (!Arrays.equals(output, goldenFile)) {
                     throw new GoldenFileDoesntMatch("The Output and the value stored in the Golden File doesn't Match");
                 }
+                System.out.print(".");
             }catch (GoldenFileDoesntMatch e){
-
+                System.out.print("F");
+                result.addFailure();
+                result.addTestTraceFailure(testMethod, e);
+            }catch (Exception e){
+                System.out.print("E");
+                result.addError();
+                result.addTestTraceError(testMethod, e);
             }
         }
+        return result;
     }
 
-    private void checkGoldenVsStringTests(Set<Method> methodsGoldenVsString, String goldenFileLocations) throws InvocationTargetException, IllegalAccessException, IOException, GoldenFileDoesntMatch {
+    private GoldenTestResult checkGoldenVsStringTests(Set<Method> methodsGoldenVsString, String goldenFileLocations, GoldenTestResult result) {
         for(Method testMethod : methodsGoldenVsString){
-            beforeEach();
-            String output = (String) testMethod.invoke(this);
-            afterEach();
-            byte [] byteOutput =  output.getBytes();
-            byte [] goldenFile = Files.readAllBytes(Paths.get(goldenFileLocations+"/"+testMethod.getName()));
-            if (!Arrays.equals(byteOutput, goldenFile)){
-                throw new GoldenFileDoesntMatch("The Output and the value stored in the Golden File doesn't Match");
+            try{
+                beforeEach();
+                String output = (String) testMethod.invoke(this);
+                afterEach();
+                byte [] byteOutput =  output.getBytes();
+                byte [] goldenFile = Files.readAllBytes(Paths.get(goldenFileLocations+"/"+testMethod.getName()));
+                if (!Arrays.equals(byteOutput, goldenFile)){
+                    throw new GoldenFileDoesntMatch("The Output and the value stored in the Golden File doesn't Match");
+                }
+                System.out.print(".");
+            }catch (GoldenFileDoesntMatch e){
+                System.out.print("F");
+                result.addFailure();
+                result.addTestTraceFailure(testMethod, e);
+            }catch (Exception e){
+                System.out.print("E");
+                result.addError();
+                result.addTestTraceError(testMethod, e);
             }
         }
+        return result;
     }
 
     private String getOutputFilePath(Method testMethod) throws OutputFileNotSpecified {

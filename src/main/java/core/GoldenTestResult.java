@@ -7,9 +7,9 @@ public class GoldenTestResult {
     public static final String ANSI_RESET = "\u001B[0m";
     public static final String ANSI_RED_BACKGROUND = "\u001B[41m";
 
-    private int numFailures;
-    private int numErrors;
-    private String finalOutput;
+    private int numFailures = 0;
+    private int numErrors = 0;
+    private String finalOutput = "";
 
     public void addFailure(){
         numFailures++;
