@@ -3,32 +3,68 @@ package core;
 import annotations.GoldenTest;
 import org.reflections.Reflections;
 
-import java.util.ArrayList;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Set;
+import java.io.File;
+import java.util.*;
 
 public class GoldenTestBuilder <T>{
 
-    public Reflections reflections;
-    Set<Class<T>> annotatedGoldenTestClasses;
-    boolean update;
 
-    public GoldenTestBuilder(String testPackage, boolean update){
-        this.reflections = new Reflections(testPackage);
-        this.annotatedGoldenTestClasses = new HashSet<>();
+    public boolean update;
+    public String testLocation;
+
+    private GoldenTestBuilder(String testLocation, boolean update){
+        this.testLocation = testLocation;
+        this.update = update;
     }
 
-    public GoldenFileTestSuite createGoldenTests() throws Exception{
-        GoldenFileTestSuite test = new GoldenFileTestSuite(this.update);
-        for (Class clss : reflections.getTypesAnnotatedWith(GoldenTest.class)){
+    public static GoldenTestBuilder builder(String testLocation, boolean update){
+        return new GoldenTestBuilder(testLocation, update);
+    }
+
+    public GoldenFileTestSuite createGoldenTests() {
+        GoldenFileTestSuite test = new GoldenFileTestSuite();
+        File pathFile = new File(this.testLocation);
+        if (pathFile.isFile()){
             try {
-                test.addTest((GoldenFileTest) clss.getConstructor().newInstance());
-            } catch (Exception e){
-                throw e;
+                Class clss = Class.forName(pathFile.getName());
+                if (clss.isAnnotationPresent(GoldenTest.class)) {
+                    test.addTest((GoldenFileTest) clss.getConstructor().newInstance());
+                }
+            }catch (Exception e){
+                System.out.println(e);
+                System.exit(-1);
             }
+        }
+        if (pathFile.isDirectory()){
+            List<File> files = Arrays.asList(pathFile.listFiles());
+            test.addTest(recursiveDirectoryTestCreation(files, new GoldenFileTestSuite()));
         }
         return test;
     }
+
+    public GoldenFileTestSuite recursiveDirectoryTestCreation(List<File> files, GoldenFileTestSuite testSuite){
+        if (files.size() <= 0){
+            return testSuite;
+        }else{
+            File file = files.remove(0);
+            if (file.isDirectory()){
+                testSuite.addTest(recursiveDirectoryTestCreation(Arrays.asList(file.listFiles()), testSuite));
+            }else{
+                try {
+                    Class clss = Class.forName(file.getName());
+                    if (clss.isAnnotationPresent(GoldenTest.class)) {
+                        testSuite.addTest((GoldenFileTest) clss.getConstructor().newInstance());
+                    }
+                }catch(Exception e){
+                    System.out.println(e);
+                    System.exit(-1);
+                }
+            }
+            return recursiveDirectoryTestCreation(files, testSuite);
+        }
+    }
+
+
+
 
 }

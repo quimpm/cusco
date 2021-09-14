@@ -8,7 +8,7 @@ public class GoldenFileTestSuite implements GoldenFileTest {
     List<GoldenFileTest> tests;
     List<GoldenTestResult> results;
 
-    public GoldenFileTestSuite(boolean update){
+    public GoldenFileTestSuite(){
         this.tests = new ArrayList<GoldenFileTest>();
         this.results = new ArrayList<GoldenTestResult>();
     }
