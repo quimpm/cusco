@@ -7,9 +7,15 @@ public class GoldenTestResult {
     public static final String ANSI_RESET = "\u001B[0m";
     public static final String ANSI_RED_BACKGROUND = "\u001B[41m";
 
-    private int numFailures = 0;
-    private int numErrors = 0;
-    private String finalOutput = "";
+    private int numFailures;
+    private int numErrors;
+    private String trace;
+
+    public GoldenTestResult(){
+        numFailures = 0;
+        numErrors = 0;
+        trace = "";
+    }
 
     public void addFailure(){
         numFailures++;
@@ -20,13 +26,15 @@ public class GoldenTestResult {
     }
 
     public void addTestTraceFailure(Method meth, Exception e){
-        finalOutput += ANSI_RED_BACKGROUND+meth.getName()+ANSI_RESET;
-        finalOutput += e.toString();
+        trace += "\n";
+        trace += ANSI_RED_BACKGROUND+meth.getName()+ANSI_RESET;
+        trace += e.toString();
     }
 
     public void addTestTraceError(Method meth, Exception e){
-        finalOutput += ANSI_RED_BACKGROUND+meth.getName()+ANSI_RESET;
-        finalOutput += e.toString();
+        trace += "\n";
+        trace += ANSI_RED_BACKGROUND+meth.getName()+ANSI_RESET;
+        trace += e.toString();
     }
 
     public int getNumFailures() {
@@ -46,7 +54,7 @@ public class GoldenTestResult {
     }
 
     public String getFinalOutput() {
-        return finalOutput;
+        return trace;
     }
 
     public void setFinalOutput(String finalOutput) {

@@ -19,7 +19,7 @@ public class GoldenTestBuilder <T>{
         this.annotatedGoldenTestClasses = new HashSet<>();
     }
 
-    public GoldenFileTestSuite getGoldenTests() throws Exception{
+    public GoldenFileTestSuite createGoldenTests() throws Exception{
         GoldenFileTestSuite test = new GoldenFileTestSuite(this.update);
         for (Class clss : reflections.getTypesAnnotatedWith(GoldenTest.class)){
             try {
